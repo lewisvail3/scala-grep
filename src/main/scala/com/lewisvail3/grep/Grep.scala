@@ -8,11 +8,11 @@ object Grep {
 
   private def printUsage() {
     // Full usage print out
-//    println("usage: grep [-abcDEFGHhIiJLlmnOoqRSsUVvwxZ] [-A num] [-B num] [-C[num]]")
-//    println("\t[-e pattern] [-f file] [--binary-files=value] [--color=when]")
-//    println("\t[--context[=num]] [--directories=action] [--label] [--line-buffered]")
-//    println("\t[--null] [pattern] [file ...]")
-    
+    //    println("usage: grep [-abcDEFGHhIiJLlmnOoqRSsUVvwxZ] [-A num] [-B num] [-C[num]]")
+    //    println("\t[-e pattern] [-f file] [--binary-files=value] [--color=when]")
+    //    println("\t[--context[=num]] [--directories=action] [--label] [--line-buffered]")
+    //    println("\t[--null] [pattern] [file ...]")
+
     // implemented usage print out
     println("usage: grep [pattern] [file ...]")
   }
@@ -30,10 +30,10 @@ object Grep {
         list match {
           case Nil => map
           // TODO: uncomment these as they become implemented
-//          case "-A" :: value :: tail =>
-//            nextOption(map ++ Map('linesAfterMatch -> value), tail)
-//          case "-B" :: value :: tail =>
-//            nextOption(map ++ Map('linesBeforeMatch -> value), tail)
+          // case "-A" :: value :: tail =>
+          //   nextOption(map ++ Map('linesAfterMatch -> value), tail)
+          // case "-B" :: value :: tail =>
+          //   nextOption(map ++ Map('linesBeforeMatch -> value), tail)
           case option :: tail if option.startsWith("-") =>
             Console.err.println("option " + option + " is not supported")
             throw new IllegalArgumentException
@@ -56,16 +56,16 @@ object Grep {
     }
   }
 
-  private def grepFile(filename:String, pattern:String, prependFilename:Boolean) {
+  private def grepFile(filename: String, pattern: String, prependFilename: Boolean) {
     try {
-    	val source = Source.fromFile(filename)
-    			try {
-    				source.getLines().filter { line => pattern.r().findFirstIn(line).nonEmpty }
-    				.map { line => if (prependFilename) filename + ":" + line else line }
-    				.foreach { println }
-    			} finally {
-    				source.close()
-    			}
+      val source = Source.fromFile(filename)
+      try {
+        source.getLines().filter { line => pattern.r().findFirstIn(line).nonEmpty }
+          .map { line => if (prependFilename) filename + ":" + line else line }
+          .foreach { println }
+      } finally {
+        source.close()
+      }
     } catch {
       case ex: FileNotFoundException =>
         Console.err.println(filename + ": No such file or directory")
