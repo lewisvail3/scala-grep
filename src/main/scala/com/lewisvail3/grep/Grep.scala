@@ -49,26 +49,29 @@ object Grep {
       try {
         var options = nextOption(Map(), args.toList)
 
-        fileNames.foreach { filename => grepFile(filename, pattern, fileNames.size > 1) }
+        fileNames.flatMap(filename => grepFile(filename, pattern, fileNames.size > 1))
+          .foreach(println)
       } catch {
         case ex: IllegalArgumentException => System.exit(1)
       }
     }
   }
 
-  private def grepFile(filename: String, pattern: String, prependFilename: Boolean) {
+  def grepFile(filename: String, pattern: String, prependFilename: Boolean) : List[String] = {
     try {
       val source = Source.fromFile(filename)
       try {
-        source.getLines().filter { line => pattern.r().findFirstIn(line).nonEmpty }
-          .map { line => if (prependFilename) filename + ":" + line else line }
-          .foreach { println }
+        source.getLines().filter(line => pattern.r().findFirstIn(line).nonEmpty)
+          .map(line => if (prependFilename) filename + ":" + line else line)
+          .toList
       } finally {
         source.close()
       }
     } catch {
-      case ex: FileNotFoundException =>
+      case ex: FileNotFoundException => {
         Console.err.println(filename + ": No such file or directory")
+        Nil
+      }
     }
   }
 
