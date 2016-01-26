@@ -56,6 +56,8 @@ object Grep {
       }
     }
   }
+  
+  def grepFile(filename: String, pattern: String) : List[String] = grepFile(filename, pattern, false)
 
   def grepFile(filename: String, pattern: String, prependFilename: Boolean) : List[String] = {
     try {
