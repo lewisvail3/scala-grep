@@ -3,6 +3,7 @@ package com.lewisvail3.grep
 import io.Source
 import util.matching.Regex
 import java.io.FileNotFoundException
+import scala.annotation.tailrec
 
 object Grep {
 
@@ -14,7 +15,7 @@ object Grep {
     //    println("\t[--null] [pattern] [file ...]")
 
     // implemented usage print out
-    println("usage: grep [pattern] [file ...]")
+    println("usage: grep [-A num] [pattern] [file ...]")
   }
 
   def main(args: Array[String]) {
@@ -29,9 +30,9 @@ object Grep {
       def nextOption(map: Map[Symbol, String], list: List[String]): Map[Symbol, String] = {
         list match {
           case Nil => map
+          case "-A" :: value :: tail =>
+            nextOption(map ++ Map('linesAfterMatch -> value), tail)
           // TODO: uncomment these as they become implemented
-          // case "-A" :: value :: tail =>
-          //   nextOption(map ++ Map('linesAfterMatch -> value), tail)
           // case "-B" :: value :: tail =>
           //   nextOption(map ++ Map('linesBeforeMatch -> value), tail)
           case option :: tail if option.startsWith("-") =>
@@ -49,7 +50,9 @@ object Grep {
       try {
         var options = nextOption(Map(), args.toList)
 
-        fileNames.flatMap(filename => grepFile(filename, pattern, fileNames.size > 1))
+        val linesAfterMatch = options.getOrElse('linesAfterMatch, "0")
+        fileNames.flatMap(filename => grepFile(filename, pattern,
+            options.getOrElse('linesAfterMatch, "0").toInt, fileNames.size > 1))
           .foreach(println)
       } catch {
         case ex: IllegalArgumentException => System.exit(1)
@@ -57,15 +60,46 @@ object Grep {
     }
   }
   
-  def grepFile(filename: String, pattern: String) : List[String] = grepFile(filename, pattern, false)
+  def grepFile(filename: String, pattern: String) : List[String] = {
+    grepFile(filename, pattern, false)
+  }
+  
+  def grepFile(filename: String, pattern: String, linesAfterMatch: Int) : List[String] = {
+		  grepFile(filename, pattern, linesAfterMatch, false)
+  }
 
   def grepFile(filename: String, pattern: String, prependFilename: Boolean) : List[String] = {
+    grepFile(filename, pattern, 0, prependFilename)
+  }
+
+  def grepFile(filename: String, pattern: String, linesAfterMatch: Int,
+      prependFilename: Boolean) : List[String] = {
     try {
       val source = Source.fromFile(filename)
       try {
-        source.getLines().filter(line => pattern.r().findFirstIn(line).nonEmpty)
-          .map(line => if (prependFilename) filename + ":" + line else line)
-          .toList
+        
+        def isMatch(line: String) = pattern.r().findFirstIn(line).nonEmpty
+  
+        @tailrec
+        def filterLines(fileStream: Stream[String], matches: List[String], linesToRead: Int, printBreak: Boolean): List[String] = {
+          fileStream match {
+            case line #:: tail if isMatch(line) && printBreak =>
+              filterLines(line +: tail, matches :+ "--", linesAfterMatch, false)
+            case line #:: tail if isMatch(line) =>
+              filterLines(tail, matches :+ line, linesAfterMatch, false)
+            case line #:: tail if linesToRead > 0 =>
+              filterLines(tail, matches :+ line, linesToRead - 1, linesToRead == 1)
+            case line #:: tail =>
+              filterLines(tail, matches, 0, printBreak)
+            case Stream.Empty => matches
+          }
+        }
+        
+        var results = filterLines(source.getLines().toStream, Nil, 0, false)
+        if (prependFilename) {
+          results = results.map(line => filename + ":" + line)
+        }
+        results.toList
       } finally {
         source.close()
       }
