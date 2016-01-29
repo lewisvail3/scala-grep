@@ -7,6 +7,8 @@ import scala.annotation.tailrec
 
 object Grep {
 
+  private val SEPARATOR = "--"
+
   private def printUsage() {
     // Full usage print out
     //    println("usage: grep [-abcDEFGHhIiJLlmnOoqRSsUVvwxZ] [-A num] [-B num] [-C[num]]")
@@ -72,34 +74,40 @@ object Grep {
     grepFile(filename, pattern, 0, prependFilename)
   }
 
-  def grepFile(filename: String, pattern: String, linesAfterMatch: Int,
-      prependFilename: Boolean) : List[String] = {
+  def grepFile(filename: String, pattern: String, linesAfterMatch: Int, 
+      prependFilename: Boolean): List[String] = {
+    
+    def isMatch(line: String) = pattern.r().findFirstIn(line).nonEmpty
+
+    def decorateLine(line: String) = {
+      if (prependFilename) {
+        filename + ":" + line
+      } else {
+        line
+      }
+    }
+
+    @tailrec
+    def filterLines(fileStream: Stream[String], matches: List[String], linesToRead: Int, printBreak: Boolean): List[String] = {
+      fileStream match {
+        case line #:: tail if isMatch(line) && printBreak =>
+          filterLines(line +: tail, matches :+ SEPARATOR, linesAfterMatch, false)
+        case line #:: tail if isMatch(line) =>
+          filterLines(tail, matches :+ decorateLine(line), linesAfterMatch, false)
+        case line #:: tail if linesToRead > 0 =>
+          filterLines(tail, matches :+ decorateLine(line), linesToRead - 1, linesToRead == 1)
+        case line #:: tail =>
+          filterLines(tail, matches, 0, printBreak)
+        case Stream.Empty => matches
+      }
+    }
+    
     try {
       val source = Source.fromFile(filename)
       try {
         
-        def isMatch(line: String) = pattern.r().findFirstIn(line).nonEmpty
-  
-        @tailrec
-        def filterLines(fileStream: Stream[String], matches: List[String], linesToRead: Int, printBreak: Boolean): List[String] = {
-          fileStream match {
-            case line #:: tail if isMatch(line) && printBreak =>
-              filterLines(line +: tail, matches :+ "--", linesAfterMatch, false)
-            case line #:: tail if isMatch(line) =>
-              filterLines(tail, matches :+ line, linesAfterMatch, false)
-            case line #:: tail if linesToRead > 0 =>
-              filterLines(tail, matches :+ line, linesToRead - 1, linesToRead == 1)
-            case line #:: tail =>
-              filterLines(tail, matches, 0, printBreak)
-            case Stream.Empty => matches
-          }
-        }
         
-        var results = filterLines(source.getLines().toStream, Nil, 0, false)
-        if (prependFilename) {
-          results = results.map(line => filename + ":" + line)
-        }
-        results.toList
+        filterLines(source.getLines().toStream, Nil, 0, false)
       } finally {
         source.close()
       }
@@ -110,5 +118,4 @@ object Grep {
       }
     }
   }
-
 }
