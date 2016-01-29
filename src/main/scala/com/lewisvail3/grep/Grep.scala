@@ -56,6 +56,7 @@ object Grep {
         fileNames.flatMap(filename => grepFile(filename, pattern,
             options.getOrElse('linesAfterMatch, "0").toInt, fileNames.size > 1))
           .foreach(println)
+        // TODO: need to handle breaks between file matches
       } catch {
         case ex: IllegalArgumentException => System.exit(1)
       }
@@ -88,17 +89,22 @@ object Grep {
     }
 
     @tailrec
-    def filterLines(fileStream: Stream[String], matches: List[String], linesToRead: Int, printBreak: Boolean): List[String] = {
-      fileStream match {
-        case line #:: tail if isMatch(line) && printBreak =>
-          filterLines(line +: tail, matches :+ SEPARATOR, linesAfterMatch, false)
-        case line #:: tail if isMatch(line) =>
-          filterLines(tail, matches :+ decorateLine(line), linesAfterMatch, false)
-        case line #:: tail if linesToRead > 0 =>
-          filterLines(tail, matches :+ decorateLine(line), linesToRead - 1, linesToRead == 1)
-        case line #:: tail =>
-          filterLines(tail, matches, 0, printBreak)
-        case Stream.Empty => matches
+    def filterLines(fileItr: Iterator[String], matches: List[String], linesToRead: Int, printBreak: Boolean): List[String] = {
+      if (fileItr.hasNext) {
+        val line = fileItr.next();
+        if (isMatch(line)) {
+          var separator: Option[String] = None
+          if (printBreak) {
+            separator = Option(SEPARATOR)
+          }
+        	filterLines(fileItr, matches ++ separator :+ decorateLine(line), linesAfterMatch, false)
+        } else if (linesToRead > 0) {
+        	filterLines(fileItr, matches :+ decorateLine(line), linesToRead - 1, linesToRead == 1)
+        } else {
+        	filterLines(fileItr, matches, 0, printBreak)
+        }
+      } else {
+        matches
       }
     }
     
@@ -107,7 +113,7 @@ object Grep {
       try {
         
         
-        filterLines(source.getLines().toStream, Nil, 0, false)
+        filterLines(source.getLines(), Nil, 0, false)
       } finally {
         source.close()
       }
