@@ -112,7 +112,6 @@ object Grep {
       val source = Source.fromFile(filename)
       try {
         
-        
         filterLines(source.getLines(), Nil, 0, false)
       } finally {
         source.close()
