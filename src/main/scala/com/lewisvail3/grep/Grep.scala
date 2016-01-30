@@ -53,10 +53,22 @@ object Grep {
         var options = nextOption(Map(), args.toList)
 
         val linesAfterMatch = options.getOrElse('linesAfterMatch, "0")
-        fileNames.flatMap(filename => grepFile(filename, pattern,
-            options.getOrElse('linesAfterMatch, "0").toInt, fileNames.size > 1))
-          .foreach(println)
-        // TODO: need to handle breaks between file matches
+        val multipleFiles = fileNames.size > 1
+        val matches = fileNames.map(filename => grepFile(filename, pattern,
+            options.getOrElse('linesAfterMatch, "0").toInt, multipleFiles))
+        var flatMatches: List[String] = Nil
+        if (multipleFiles) {
+          flatMatches = matches.flatMap(fileMatches => {
+            if (fileMatches.size > 0) {
+              fileMatches :+ SEPARATOR
+            } else {
+              fileMatches
+            }
+          }).dropRight(1)
+        } else {
+          flatMatches = matches.flatten
+        }
+        flatMatches.foreach(println)
       } catch {
         case ex: IllegalArgumentException => System.exit(1)
       }
