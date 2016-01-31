@@ -52,10 +52,12 @@ object Grep {
       try {
         var options = nextOption(Map(), args.toList)
 
-        val linesAfterMatch = options.getOrElse('linesAfterMatch, "0")
+        val linesAfterMatch = options.getOrElse('linesAfterMatch, "0").toInt
         val multipleFiles = fileNames.size > 1
+        
         val matches = fileNames.map(filename => grepFile(filename, pattern,
-            options.getOrElse('linesAfterMatch, "0").toInt, multipleFiles))
+            linesAfterMatch, multipleFiles))
+        
         var flatMatches: List[String] = Nil
         if (multipleFiles) {
           flatMatches = matches.flatMap(fileMatches => {
@@ -70,6 +72,9 @@ object Grep {
         }
         flatMatches.foreach(println)
       } catch {
+        case ex: NumberFormatException =>
+          Console.err.println("Invalid argument")
+          System.exit(1)
         case ex: IllegalArgumentException => System.exit(1)
       }
     }
