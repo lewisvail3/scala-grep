@@ -53,23 +53,29 @@ object Grep {
         var options = nextOption(Map(), args.toList)
 
         val linesAfterMatch = options.getOrElse('linesAfterMatch, "0").toInt
-        val multipleFiles = fileNames.size > 1
-        
-        val matches = fileNames.map(filename => grepFile(filename, pattern,
-            linesAfterMatch, multipleFiles))
         
         var flatMatches: List[String] = Nil
-        if (multipleFiles) {
-          flatMatches = matches.flatMap(fileMatches => {
-            if (fileMatches.size > 0) {
-              fileMatches :+ SEPARATOR
-            } else {
-              fileMatches
-            }
-          }).dropRight(1)
+        if (fileNames.size == 0) {
+          flatMatches = grepStdin(pattern, linesAfterMatch)
         } else {
-          flatMatches = matches.flatten
+        	val multipleFiles = fileNames.size > 1
+        	
+          var matches = fileNames.map(filename => grepFile(filename, pattern,
+              linesAfterMatch, multipleFiles))
+              
+          if (multipleFiles) {
+        	  flatMatches = matches.flatMap(fileMatches => {
+        		  if (fileMatches.size > 0) {
+        			  fileMatches :+ SEPARATOR
+        		  } else {
+        			  fileMatches
+        		  }
+        	  }).dropRight(1)
+          } else {
+        	  flatMatches = matches.flatten
+          }
         }
+        
         flatMatches.foreach(println)
       } catch {
         case ex: NumberFormatException =>
@@ -95,11 +101,38 @@ object Grep {
   def grepFile(filename: String, pattern: String, linesAfterMatch: Int, 
       prependFilename: Boolean): List[String] = {
     
+    try {
+      val source = Source.fromFile(filename)
+      try {
+        val prefix = if (prependFilename) filename + ":" else ""
+        grepSource(source, prefix, pattern, linesAfterMatch)
+      } finally {
+        source.close()
+      }
+    } catch {
+      case ex: FileNotFoundException => {
+        Console.err.println(filename + ": No such file or directory")
+        Nil
+      }
+    }
+  }
+
+  def grepStdin(pattern: String, linesAfterMatch: Int): List[String] = {
+    val source = Source.stdin
+    try {
+      grepSource(source, "", pattern, linesAfterMatch)
+    } finally {
+      source.close()
+    }
+  }
+
+  def grepSource(source: Source, prefix: String, pattern: String, linesAfterMatch: Int): List[String] = {
+    
     def isMatch(line: String) = pattern.r().findFirstIn(line).nonEmpty
 
     def decorateLine(line: String) = {
-      if (prependFilename) {
-        filename + ":" + line
+      if (prefix.nonEmpty) {
+        prefix + line
       } else {
         line
       }
@@ -124,20 +157,7 @@ object Grep {
         matches
       }
     }
-    
-    try {
-      val source = Source.fromFile(filename)
-      try {
-        
-        filterLines(source.getLines(), Nil, 0, false)
-      } finally {
-        source.close()
-      }
-    } catch {
-      case ex: FileNotFoundException => {
-        Console.err.println(filename + ": No such file or directory")
-        Nil
-      }
-    }
+
+    filterLines(source.getLines(), Nil, 0, false)
   }
 }
